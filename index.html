@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>US Data Center &amp; BTM Power Site Selector</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2330;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #7d8590;
+    --accent: #1f6feb;
+    --accent2: #388bfd;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --orange: #db6d28;
+    --red: #f85149;
+    --score-a: #1a9e3a;
+    --score-b: #52b352;
+    --score-c: #e0b040;
+    --score-d: #e07030;
+    --score-e: #c03025;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  #header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  #header h1 { font-size: 1.1rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+  #header h1 span { color: var(--accent2); }
+  #header .subtitle { font-size: 0.75rem; color: var(--text-muted); flex: 1; }
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-swatch {
+    width: 12px; height: 12px; border-radius: 2px;
+  }
+  .view-toggle {
+    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .view-btn {
+    padding: 5px 12px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    transition: all 0.2s;
+  }
+  .view-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* ── Layout ── */
+  #app {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #sidebar h2 {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .factor-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    transition: border-color 0.2s;
+  }
+  .factor-card.disabled { opacity: 0.4; }
+  .factor-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .factor-toggle {
+    width: 32px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: relative;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .factor-toggle.on { background: var(--accent); }
+  .factor-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .factor-toggle.on::after { transform: translateX(14px); }
+  .factor-icon { font-size: 1rem; }
+  .factor-name { font-size: 0.78rem; font-weight: 600; flex: 1; }
+  .factor-label { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 6px; }
+  .weight-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .weight-row label { font-size: 0.68rem; color: var(--text-muted); width: 46px; }
+  .weight-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .weight-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent2);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .weight-val {
+    font-size: 0.72rem;
+    color: var(--accent2);
+    width: 16px;
+    text-align: right;
+    font-weight: 700;
+  }
+
+  #top-states { margin-top: 4px; }
+  #top-states h2 { margin-bottom: 8px; }
+  .rank-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 0.75rem;
+  }
+  .rank-item:hover { background: var(--surface2); }
+  .rank-num {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    width: 16px;
+    text-align: center;
+    font-weight: 700;
+  }
+  .rank-abbr {
+    font-weight: 700;
+    color: var(--accent2);
+    width: 24px;
+  }
+  .rank-name { flex: 1; color: var(--text-muted); }
+  .rank-score {
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ── Map Area ── */
+  #map-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #0a0e16;
+  }
+  #map-svg {
+    width: 100%;
+    height: 100%;
+  }
+  .state-path {
+    cursor: pointer;
+    stroke: #1a2030;
+    stroke-width: 0.5;
+    transition: stroke-width 0.15s, stroke 0.15s;
+  }
+  .state-path:hover {
+    stroke: #ffffff;
+    stroke-width: 1.5;
+  }
+  .state-path.selected {
+    stroke: #ffffff;
+    stroke-width: 2;
+  }
+  .state-label {
+    font-size: 7px;
+    fill: rgba(255,255,255,0.6);
+    text-anchor: middle;
+    pointer-events: none;
+    font-weight: 600;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .state-label-sm {
+    font-size: 5.5px;
+  }
+
+  /* ── Tooltip ── */
+  #tooltip {
+    position: absolute;
+    background: rgba(22, 27, 34, 0.97);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+    min-width: 180px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .tt-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
+  #tooltip .tt-score { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+  #tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  #tooltip .tt-row span:last-child { font-weight: 600; color: var(--text); }
+
+  /* ── Detail Panel ── */
+  #detail-panel {
+    width: 320px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+    display: none;
+    flex-direction: column;
+  }
+  #detail-panel.open { display: flex; }
+  .dp-header {
+    padding: 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .dp-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0;
+    margin-top: -2px;
+  }
+  .dp-close:hover { color: var(--text); }
+  .dp-state-name { font-size: 1.1rem; font-weight: 800; }
+  .dp-rto { font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
+  .dp-score-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .dp-score-big {
+    font-size: 2.8rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .dp-score-label { font-size: 0.68rem; color: var(--text-muted); padding-bottom: 5px; }
+  .dp-grade {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    margin-left: auto;
+    align-self: center;
+  }
+  .dp-body { padding: 14px 16px; flex: 1; }
+  .dp-section { margin-bottom: 16px; }
+  .dp-section h3 {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .factor-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .factor-bar-label {
+    font-size: 0.68rem;
+    width: 100px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .factor-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .factor-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .factor-bar-val {
+    font-size: 0.7rem;
+    font-weight: 700;
+    width: 18px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .dp-highlight {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    margin-bottom: 5px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+  .dp-highlight::before {
+    content: '▸';
+    color: var(--accent2);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .dp-note {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+  .dp-note strong { color: var(--text); display: block; margin-bottom: 2px; }
+  .markets-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .market-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.68rem;
+    color: var(--accent2);
+  }
+
+  /* ── No selection placeholder ── */
+  #map-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(22,27,34,0.85);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* Score color helpers */
+  .c-a { color: var(--score-a); }
+  .c-b { color: var(--score-b); }
+  .c-c { color: var(--score-c); }
+  .c-d { color: var(--score-d); }
+  .c-e { color: var(--score-e); }
+  .bg-a { background: var(--score-a); }
+  .bg-b { background: var(--score-b); }
+  .bg-c { background: var(--score-c); }
+  .bg-d { background: var(--score-d); }
+  .bg-e { background: var(--score-e); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>⚡ <span>DataSite</span> Selector</h1>
+  <div class="subtitle">US Data Center &amp; Behind-the-Meter Natural Gas Power Optimization</div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:#1a9e3a"></div>Excellent (8–10)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#52b352"></div>Good (6–8)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#e0b040"></div>Moderate (4–6)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#e07030"></div>Challenging (2–4)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#c03025"></div>Difficult (0–2)</div>
+  </div>
+  <div class="view-toggle">
+    <button class="view-btn active" data-view="composite">Composite</button>
+    <button class="view-btn" data-view="btm">BTM Regs</button>
+    <button class="view-btn" data-view="land">Land</button>
+    <button class="view-btn" data-view="gas">Nat Gas</button>
+    <button class="view-btn" data-view="permitting">Permitting</button>
+    <button class="view-btn" data-view="opposition">Opposition</button>
+    <button class="view-btn" data-view="rto">RTO/ISO</button>
+  </div>
+</div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <h2>Scoring Factors</h2>
+
+    <div class="factor-card" id="card-btm">
+      <div class="factor-header">
+        <button class="factor-toggle on" id="toggle-btm" data-factor="btm"></button>
+        <span class="factor-icon">📜</span>
+        <span class="factor-name">BTM Nat Gas Regs</span>
+      </div>
+      <div class="factor-label">Clarity &amp; favorability of behind-the-meter natural gas generation regulations</div>
+      <div class="weight-row">
+        <label>Weight</label>
+        <input type="range" class="weight-slider" id="weight-btm" min="1" max="5" value="5" data-factor="btm">
+        <span class="weight-val" id="wval-btm">5</span>
+      </div>
+    </div>
+
+    <div class="factor-card" id="card-land">
+      <div class="factor-header">
+        <button class="factor-toggle on" id="toggle-land" data-factor="land"></button>
+        <span class="factor-icon">🏔️</span>
+        <span class="factor-name">Land Availability &amp; Cost</span>
+      </div>
+      <div class="factor-label">Availability of large parcels at competitive prices in industrial-zoned areas</div>
+      <div class="weight-row">
+        <label>Weight</label>
+        <input type="range" class="weight-slider" id="weight-land" min="1" max="5" value="3" data-factor="land">
+        <span class="weight-val" id="wval-land">3</span>
+      </div>
+    </div>
+
+    <div class="factor-card" id="card-gas">
+      <div class="factor-header">
+        <button class="factor-toggle on" id="toggle-gas" data-factor="gas"></button>
+        <span class="factor-icon">🔥</span>
+        <span class="factor-name">Nat Gas Availability &amp; Cost</span>
+      </div>
+      <div class="factor-label">Pipeline infrastructure density and competitive industrial gas pricing</div>
+      <div class="weight-row">
+        <label>Weight</label>
+        <input type="range" class="weight-slider" id="weight-gas" min="1" max="5" value="4" data-factor="gas">
+        <span class="weight-val" id="wval-gas">4</span>
+      </div>
+    </div>
+
+    <div class="factor-card" id="card-permitting">
+      <div class="factor-header">
+        <button class="factor-toggle on" id="toggle-permitting" data-factor="permitting"></button>
+        <span class="factor-icon">⏱️</span>
+        <span class="factor-name">Permitting Timeline</span>
+      </div>
+      <div class="factor-label">Speed and predictability of air quality, building, and utility interconnection permits</div>
+      <div class="weight-row">
+        <label>Weight</label>
+        <input type="range" class="weight-slider" id="weight-permitting" min="1" max="5" value="4" data-factor="permitting">
+        <span class="weight-val" id="wval-permitting">4</span>
+      </div>
+    </div>
+
+    <div class="factor-card" id="card-opposition">
+      <div class="factor-header">
+        <button class="factor-toggle on" id="toggle-opposition" data-factor="opposition"></button>
+        <span class="factor-icon">📣</span>
+        <span class="factor-name">Public Opposition</span>
+      </div>
+      <div class="factor-label">Likelihood of community or environmental group opposition to large industrial power facilities</div>
+      <div class="weight-row">
+        <label>Weight</label>
+        <input type="range" class="weight-slider" id="weight-opposition" min="1" max="5" value="3" data-factor="opposition">
+        <span class="weight-val" id="wval-opposition">3</span>
+      </div>
+    </div>
+
+    <div class="factor-card" id="card-rto">
+      <div class="factor-header">
+        <button class="factor-toggle on" id="toggle-rto" data-factor="rto"></button>
+        <span class="factor-icon">⚡</span>
+        <span class="factor-name">RTO/ISO Co-location Policy</span>
+      </div>
+      <div class="factor-label">Favorability of grid operator rules for co-located generation and load (where applicable)</div>
+      <div class="weight-row">
+        <label>Weight</label>
+        <input type="range" class="weight-slider" id="weight-rto" min="1" max="5" value="4" data-factor="rto">
+        <span class="weight-val" id="wval-rto">4</span>
+      </div>
+    </div>
+
+    <div id="top-states">
+      <h2>Top Ranked States</h2>
+      <div id="rankings-list"></div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map-area">
+    <svg id="map-svg"></svg>
+    <div id="tooltip"></div>
+    <div id="map-hint">Click any state for detailed analysis</div>
+  </div>
+
+  <!-- Detail Panel -->
+  <div id="detail-panel">
+    <div class="dp-header">
+      <button class="dp-close" id="detail-close">✕</button>
+      <div class="dp-state-name" id="dp-name">—</div>
+      <div class="dp-rto" id="dp-rto">—</div>
+      <div class="dp-score-row">
+        <div class="dp-score-big" id="dp-score">—</div>
+        <div class="dp-score-label">/ 10<br>composite</div>
+        <div class="dp-grade" id="dp-grade">—</div>
+      </div>
+    </div>
+    <div class="dp-body">
+      <div class="dp-section">
+        <h3>Factor Breakdown</h3>
+        <div id="dp-bars"></div>
+      </div>
+      <div class="dp-section">
+        <h3>BTM Regulatory Overview</h3>
+        <div id="dp-btm-note" class="dp-note"></div>
+      </div>
+      <div class="dp-section">
+        <h3>Key Highlights</h3>
+        <div id="dp-highlights"></div>
+      </div>
+      <div class="dp-section">
+        <h3>Land &amp; Infrastructure</h3>
+        <div id="dp-land-note" class="dp-note"></div>
+      </div>
+      <div class="dp-section">
+        <h3>Natural Gas Supply</h3>
+        <div id="dp-gas-note" class="dp-note"></div>
+      </div>
+      <div class="dp-section">
+        <h3>Notable Markets / Locations</h3>
+        <div class="markets-list" id="dp-markets"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+<script>
+// ─────────────────────────────────────────────
+// STATE DATA
+// scores: btm=BTM nat gas regs, land, gas, permitting, opposition, rto
+// All scores 1–10, higher = more favorable
+// ─────────────────────────────────────────────
+const STATES = [
+  {
+    name:'Alabama', abbr:'AL', fips:'01',
+    scores:{btm:8,land:7,gas:7,permitting:8,opposition:8,rto:8},
+    rto:'Non-RTO (Southern Company / Alabama Power)',
+    btm_note:'No state restrictions beyond federal EPA NSPS Subpart JJJJ / KKKK for natural gas engines and turbines. Alabama Department of Environmental Management (ADEM) issues Title V and minor-source air permits with predictable 6–12 month timelines for continuous nat gas generation. No state prohibition on prime-power BTM nat gas.',
+    land_note:'Rural industrial land $2,000–$8,000/acre. Huntsville–Decatur corridor and industrial parks near Birmingham offer utility-ready sites with existing fiber and power infrastructure.',
+    gas_note:'Southern Natural Gas and Tennessee Gas Pipeline provide robust interstate access. Industrial rates competitive at $3.50–$4.80/MMBtu. LDC: Spire Alabama, Alagasco.',
+    highlights:['No RTO membership — direct utility power agreements with Alabama Power','ADEM Title V permits generally faster than national average','Low industrial electricity rates: $0.055–$0.072/kWh','Northern Alabama served by TVA with flexible large-load programs'],
+    markets:['Huntsville','Birmingham','Decatur','Montgomery','Bessemer']
+  },
+  {
+    name:'Alaska', abbr:'AK', fips:'02',
+    scores:{btm:6,land:9,gas:8,permitting:6,opposition:7,rto:7},
+    rto:'Non-RTO (Railbelt utilities / AEA)',
+    btm_note:'Alaska DEC issues air quality permits for combustion sources. No unique state restrictions on BTM nat gas beyond federal standards, but remote logistics and extreme climate add operational complexity. Permpermits achievable, though remote site challenges extend timelines.',
+    land_note:'Virtually unlimited land but extreme climate and logistics challenge large-scale development. Anchorage area and Matanuska-Susitna Valley have accessible industrial land at very low costs.',
+    gas_note:'Cook Inlet basin provides local natural gas. Anchorage area has established gas distribution. Risk: Cook Inlet reserves declining; North Slope gas future subject to political/project risk.',
+    highlights:['Abundant cheap land but severe logistics challenges','Low property taxes and no state income tax','Cold climate provides excellent natural cooling','Cook Inlet gas available but supply outlook uncertain past 2030'],
+    markets:['Anchorage','Fairbanks','Matanuska-Susitna Valley']
+  },
+  {
+    name:'Arizona', abbr:'AZ', fips:'04',
+    scores:{btm:7,land:7,gas:6,permitting:7,opposition:7,rto:7},
+    rto:'Non-RTO (WECC / APS & SRP territory)',
+    btm_note:'Arizona Department of Environmental Quality (ADEQ) administers permits under state-specific rules that closely track federal EPA. No additional nat gas generation restrictions beyond federal NSPS. Air quality permits for continuous operation achievable in 9–15 months. No prohibition on prime-power BTM nat gas.',
+    land_note:'Large industrial parcels available in Phoenix metro fringe, Tucson, and rural counties at $15,000–$60,000/acre near cities or $1,000–$5,000/acre rural. Heat requires additional HVAC costs.',
+    gas_note:'El Paso Natural Gas and Transwestern Pipeline provide interstate access. Multiple LDCs: Southwest Gas (dominant). Competitive industrial rates $3.80–$5.20/MMBtu. Strong Phoenix-area pipeline infrastructure.',
+    highlights:['No state income tax on corporations','APS and SRP offer large-load tariffs favorable for co-located generation','ADEQ permitting predictable with experienced consultants','Phoenix-Scottsdale is major existing data center hub (QTS, CyrusOne, Switch)'],
+    markets:['Phoenix','Scottsdale','Mesa','Tucson','Chandler','Goodyear']
+  },
+  {
+    name:'Arkansas', abbr:'AR', fips:'05',
+    scores:{btm:8,land:8,gas:7,permitting:8,opposition:8,rto:7},
+    rto:'SPP / MISO (split territory)',
+    btm_note:'Arkansas Department of Energy and Environment (DEE) follows federal EPA standards with no additional state restrictions. Air quality permits for continuous BTM nat gas generation achievable in 6–12 months. State has actively recruited industrial load and is permitting-friendly.',
+    land_note:'Abundant low-cost land $1,500–$6,000/acre for rural industrial. Fort Smith, Little Rock, and Northwest Arkansas corridors offer improved infrastructure. Low property taxes.',
+    gas_note:'Multiple interstate pipelines including Southern Union, CenterPoint, and others. Competitive industrial rates $3.40–$4.60/MMBtu. Good midcontinent pipeline access.',
+    highlights:['Pro-business regulatory environment','Low cost of living reduces workforce costs','Emerging tech hub around Bentonville (Walmart effect)','Low electricity rates from Entergy Arkansas'],
+    markets:['Little Rock','Fort Smith','Bentonville','Fayetteville','Jonesboro']
+  },
+  {
+    name:'California', abbr:'CA', fips:'06',
+    scores:{btm:2,land:2,gas:4,permitting:2,opposition:2,rto:3},
+    rto:'CAISO',
+    btm_note:'CRITICAL RESTRICTION: California Air Resources Board (CARB) Distributed Generation regulations (17 CCR §§93115+) impose extremely stringent emission limits on stationary natural gas engines and turbines — among the strictest globally. Continuous operation of nat gas BTM generation for prime power is effectively prohibited at large scale without ultra-low-NOx technology (often uneconomical). Air permits through local AQMDs can take 18–36+ months.',
+    land_note:'Among the highest land costs in the nation. Industrial land in Bay Area and LA: $500K–$3M+/acre. Even inland California (Inland Empire) runs $100K–$400K/acre. High property taxes and Prop 13 complexities.',
+    gas_note:'SoCalGas and PG&E are dominant LDCs. Pipeline access exists but nat gas prices among highest nationally ($5–$9/MMBtu industrial). State policies actively discourage nat gas reliance.',
+    highlights:['CARB effectively prohibits large-scale continuous BTM nat gas generation','CEQA environmental review adds years to permitting','Data center moratoriums in some municipalities','Highest electricity costs in continental US: $0.14–$0.25/kWh commercial'],
+    markets:['Silicon Valley','Los Angeles','San Jose','Sacramento']
+  },
+  {
+    name:'Colorado', abbr:'CO', fips:'08',
+    scores:{btm:6,land:6,gas:8,permitting:6,opposition:5,rto:6},
+    rto:'WECC (Xcel Energy / Tri-State territory)',
+    btm_note:'Colorado APCD permits follow federal standards but Colorado has added state-level emission reduction goals (CDPHE) that increasingly restrict nat gas generation. HB21-1266 and related legislation impose declining nat gas use targets. Continuous BTM nat gas generation still permittable but increasingly scrutinized. Timeline: 12–18 months.',
+    land_note:'Denver metro and Front Range land costs rising rapidly: $50K–$200K+/acre industrial. Eastern plains offer lower costs ($3,000–$10,000/acre) but with limited infrastructure. Renewable energy portfolio requirements add complexity.',
+    gas_note:'Excellent nat gas infrastructure — Colorado is a major producing state. Xcel territory has abundant pipeline access. Industrial rates $3.20–$4.40/MMBtu. Supply reliability excellent.',
+    highlights:['Major nat gas producer with excellent supply infrastructure','Increasing state-level clean energy mandates complicate BTM nat gas plans','Xcel Energy has been restrictive on co-located generation agreements','Denver area has high data center demand but escalating land costs'],
+    markets:['Denver','Colorado Springs','Aurora','Pueblo','Grand Junction']
+  },
+  {
+    name:'Connecticut', abbr:'CT', fips:'09',
+    scores:{btm:2,land:2,gas:3,permitting:3,opposition:3,rto:4},
+    rto:'ISO-NE',
+    btm_note:'Connecticut DEEP imposes strict air quality standards and has state-level emission reduction goals. Continuous BTM nat gas generation for prime power faces significant regulatory hurdles beyond federal EPA. ISO-NE co-location rules under FERC oversight add complexity. Permits can take 18–30+ months.',
+    land_note:'Among the densest states with very limited available industrial land. Costs extremely high: $200K–$800K+/acre near established infrastructure. Limited large parcel availability.',
+    gas_note:'Pipeline constraints in southern New England limit nat gas availability and drive price spikes, especially in winter. Iroquois Gas and Tennessee Gas serve the state. Industrial rates can reach $6–$12/MMBtu seasonally.',
+    highlights:['ISO-NE co-location policies among most complex in US','State climate mandates actively discourage nat gas investments','Pipeline constraints create fuel supply risk','Limited land and very high costs'],
+    markets:['Hartford','Stamford','New Haven','Bridgeport']
+  },
+  {
+    name:'Delaware', abbr:'DE', fips:'10',
+    scores:{btm:4,land:3,gas:5,permitting:5,opposition:5,rto:5},
+    rto:'PJM',
+    btm_note:'DNREC issues air quality permits following federal standards with some state additions. BTM nat gas is permittable but PJM co-location rules (FERC Order 2023 implications) add complexity. Permitting timeline 12–18 months. State has climate goals that may complicate future approvals.',
+    land_note:'Small state with limited industrial land. Suburban character limits large parcel availability. Industrial land $50K–$150K/acre near Wilmington. Some areas near manufacturing corridor more accessible.',
+    gas_note:'Chesapeake Utilities and Delmarva Power serve the state. Adequate pipeline access via Columbia Gas Transmission. Industrial rates $4.50–$6.00/MMBtu. No local production.',
+    highlights:['PJM territory with evolving co-location rules','Favorable corporate law environment (tax structure)','Proximity to DC/Baltimore data center markets','Limited scale opportunity due to state size'],
+    markets:['Wilmington','Dover','Newark','Middletown']
+  },
+  {
+    name:'Florida', abbr:'FL', fips:'12',
+    scores:{btm:6,land:4,gas:6,permitting:7,opposition:6,rto:8},
+    rto:'Non-RTO (FRCC / FPL, Duke Energy FL, TECO)',
+    btm_note:'Florida DEP issues air quality permits. State has no RTO membership — utilities operate under Florida PSC oversight, giving them flexibility for BTM agreements. FDEP permits for continuous nat gas generation achievable in 9–14 months. No unique state restrictions beyond federal EPA.',
+    land_note:'South Florida land extremely expensive and limited. Central and North Florida offer better availability. Industrial land: $20K–$150K/acre (varies greatly by region). Humidity and hurricane risk are factors.',
+    gas_note:'Florida is pipeline-dependent — no nat gas production. Gas arrives via multiple pipelines from Gulf states. Florida Gas Transmission and Sabal Trail dominant. Industrial rates $4.00–$5.50/MMBtu.',
+    highlights:['Non-RTO state enables flexible utility co-location agreements','No state corporate income tax (FL has no corporate income tax)','FPL large-load programs available','Hurricane/flooding risk requires resilient site design'],
+    markets:['Jacksonville','Orlando','Tampa','Miami','Lakeland','Ocala']
+  },
+  {
+    name:'Georgia', abbr:'GA', fips:'13',
+    scores:{btm:8,land:7,gas:7,permitting:8,opposition:7,rto:8},
+    rto:'Non-RTO (Southern Company / Georgia Power)',
+    btm_note:'Georgia EPD administers air quality permits with no unique state restrictions on nat gas BTM generation beyond federal EPA. Title V and minor source permits achievable in 8–14 months. Georgia Power (Southern Company) has flexible tariff structures for industrial customers with on-site generation. No prohibition on prime-power BTM nat gas.',
+    land_note:'Metro Atlanta industrial land: $30K–$100K/acre, with more affordable options in outer metro and rural areas ($3K–$15K/acre). Savannah port area offers logistics advantages. Abundant large parcels available.',
+    gas_note:'Atlanta Gas Light (Southern Company Gas) provides excellent distribution. Multiple interstate pipelines: Southern Natural Gas, Transcontinental, Tennessee Gas Pipeline. Competitive industrial rates $3.60–$5.00/MMBtu.',
+    highlights:['Major existing data center hub: QTS, Colo Atl, NCR, Microsoft, Google all have GA facilities','Georgia Power large-load programs with fixed-price long-term contracts','Non-RTO enables direct utility agreements for co-located generation','No restrictions on natural gas for industrial users'],
+    markets:['Atlanta','Douglasville','Lithia Springs','Augusta','Savannah','Columbus']
+  },
+  {
+    name:'Hawaii', abbr:'HI', fips:'15',
+    scores:{btm:3,land:2,gas:2,permitting:4,opposition:5,rto:5},
+    rto:'Non-RTO (HECO)',
+    btm_note:'Hawaii has aggressive decarbonization mandates (100% RPS by 2045). Natural gas is not part of Hawaii\'s grid infrastructure — the state runs on oil-fired and renewable generation. No nat gas pipeline exists. LNG would need to be imported via tanker, creating extreme cost barriers for BTM nat gas generation.',
+    land_note:'Extremely limited land, highest land costs in the nation. Industrial land scarce and expensive: $500K–$3M+/acre. Geographic isolation adds massive logistics costs.',
+    gas_note:'No natural gas pipeline infrastructure. LNG must be imported via ship at very high cost. Not a viable BTM nat gas market.',
+    highlights:['No natural gas pipeline infrastructure exists','State mandates 100% renewable electricity by 2045','Highest electricity costs in US: $0.28–$0.40/kWh','Geographic isolation creates extreme logistics costs'],
+    markets:['Honolulu','Kapolei']
+  },
+  {
+    name:'Idaho', abbr:'ID', fips:'16',
+    scores:{btm:8,land:8,gas:6,permitting:8,opposition:8,rto:7},
+    rto:'Non-RTO (WECC / Idaho Power, Avista, PacifiCorp)',
+    btm_note:'Idaho DEQ follows federal EPA standards with no additional state restrictions on BTM nat gas generation. Continuous operation permits achievable in 6–12 months. State government is pro-business and permitting agencies are responsive. No prohibition on prime-power BTM nat gas.',
+    land_note:'Excellent land availability and very low costs. Rural industrial land $1,000–$5,000/acre. Boise/Twin Falls corridor growing with tech interest. Cold climate beneficial for data center cooling.',
+    gas_note:'Intermountain Gas serves major population centers. Pipeline access via Williams Northwest Pipeline. Industrial rates $4.00–$5.50/MMBtu. Less robust gas infrastructure than midcontinent states.',
+    highlights:['Very low electricity costs from hydropower: $0.05–$0.07/kWh for industrial','Cold climate reduces cooling costs dramatically','Pro-business state government with responsive agencies','Growing tech corridor in Boise (Hewlett Packard Enterprise legacy)'],
+    markets:['Boise','Nampa','Twin Falls','Pocatello','Coeur d\'Alene']
+  },
+  {
+    name:'Illinois', abbr:'IL', fips:'17',
+    scores:{btm:5,land:4,gas:7,permitting:5,opposition:5,rto:5},
+    rto:'PJM / MISO (split territory)',
+    btm_note:'Illinois EPA and IEPA issue air quality permits. State Climate and Equitable Jobs Act (2021) imposes increasing restrictions on fossil fuel generation. BTM nat gas is currently permittable but faces increasing regulatory complexity. PJM and MISO co-location rules apply depending on location. Permitting 12–18 months.',
+    land_note:'Chicago metro industrial land expensive ($50K–$200K+/acre). Rural Illinois much more affordable ($3K–$15K/acre). Good infrastructure access in established industrial areas.',
+    gas_note:'Excellent nat gas infrastructure as a major hub state. Multiple interstate pipelines and storage facilities. Nicor Gas and Peoples Gas serve Chicago area. Competitive industrial rates $3.00–$4.20/MMBtu.',
+    highlights:['MISO and PJM co-location rules apply — adds regulatory complexity','State moving toward stricter emissions standards under 2021 climate law','Chicago remains major carrier-neutral colocation hub (Equinix, CyrusOne, QTS)','Good nat gas supply but increasing policy headwinds'],
+    markets:['Chicago','Aurora','Elgin','Naperville','Joliet','Rockford']
+  },
+  {
+    name:'Indiana', abbr:'IN', fips:'18',
+    scores:{btm:7,land:6,gas:8,permitting:7,opposition:7,rto:6},
+    rto:'PJM / MISO (split territory)',
+    btm_note:'Indiana Department of Environmental Management (IDEM) follows federal EPA with no additional state restrictions on BTM nat gas. Indiana has been one of the most coal-heavy states transitioning to gas — permitting infrastructure for nat gas generation well-established. Continuous operation permits achievable in 8–14 months. Legislature generally supportive of industrial energy users.',
+    land_note:'Affordable industrial land $5,000–$25,000/acre. Indianapolis area growing as data center market. Strong industrial heritage provides utility-ready brownfield sites in many locations.',
+    gas_note:'Columbia Gas of Indiana and Vectren serve major areas. Multiple interstate pipelines. Competitive industrial rates $3.20–$4.50/MMBtu. Strong midcontinent pipeline access.',
+    highlights:['Legislature passed data center tax incentive (IC 6-1.1-12-37.5) — significant IT equipment property tax exemption','PJM and MISO both present — location matters for co-location rules','Low electricity costs from legacy coal/gas fleet transition','Indianapolis growing as Midwest data center alternative to Chicago'],
+    markets:['Indianapolis','Fort Wayne','South Bend','Evansville','Columbus','Terre Haute']
+  },
+  {
+    name:'Iowa', abbr:'IA', fips:'19',
+    scores:{btm:7,land:8,gas:7,permitting:8,opposition:7,rto:6},
+    rto:'MISO',
+    btm_note:'Iowa DNR issues air quality permits following federal standards. No unique state restrictions on BTM nat gas beyond federal EPA. Iowa has been a major data center destination (Microsoft, Google, Meta, Apple all have major facilities). Permitting for nat gas combustion sources straightforward with experienced consultants. Timeline: 8–14 months.',
+    land_note:'Excellent land availability at very low costs. Rural industrial land $1,500–$6,000/acre. Des Moines area and major highway corridors offer good infrastructure. Cold winters reduce cooling costs.',
+    gas_note:'MidAmerican Energy and Black Hills Energy serve major areas. ANR Pipeline, Northern Natural Gas provide interstate access. Competitive industrial rates $3.20–$4.60/MMBtu.',
+    highlights:['Major hyperscaler data center destination: Microsoft, Google, Meta, Apple all operate here','Iowa data center tax incentive program — significant sales/use tax exemptions','Cold climate dramatically reduces cooling costs','MISO territory — co-location policy applicability depends on interconnection structure'],
+    markets:['Des Moines','Altoona','Ankeny','Council Bluffs','Cedar Rapids','West Des Moines']
+  },
+  {
+    name:'Kansas', abbr:'KS', fips:'20',
+    scores:{btm:9,land:9,gas:8,permitting:9,opposition:9,rto:7},
+    rto:'SPP',
+    btm_note:'Kansas Department of Health and Environment (KDHE) follows federal EPA with minimal additional state requirements. One of the most permitting-friendly states for industrial energy projects. No state restrictions on BTM nat gas generation. Air quality permits for continuous generation achievable in 5–9 months. Legislature actively supportive of industrial energy development.',
+    land_note:'Exceptional land availability at low costs. Rural industrial land $800–$4,000/acre. Kansas City metro and Wichita corridor offer infrastructure with lower costs than most metros. Very low property taxes.',
+    gas_note:'Kansas is a major nat gas producing state with excellent pipeline infrastructure. Atmos Energy, Kansas Gas Service serve major areas. Multiple interstate pipelines. Excellent industrial rates $2.80–$4.00/MMBtu.',
+    highlights:['KDHE among fastest permitting agencies in US for industrial air permits','Kansas data center incentives available (sales tax exemption on electricity)','No state restrictions on BTM nat gas — very clear regulatory path','SPP territory: co-location policies developing but generally flexible'],
+    markets:['Kansas City','Wichita','Topeka','Overland Park','Olathe','Garden City']
+  },
+  {
+    name:'Kentucky', abbr:'KY', fips:'21',
+    scores:{btm:7,land:7,gas:7,permitting:7,opposition:7,rto:6},
+    rto:'PJM / MISO (split territory)',
+    btm_note:'Kentucky Energy and Environment Cabinet follows federal EPA. No unique state restrictions on BTM nat gas generation. Long history of heavy industrial power use makes permitting infrastructure well-developed. Air quality permits for continuous nat gas generation achievable in 8–14 months.',
+    land_note:'Low-cost industrial land $3,000–$15,000/acre. Louisville metro growing as data center market. Strong existing industrial infrastructure from manufacturing heritage. Low property taxes.',
+    gas_note:'Columbia Gas of Kentucky and Atmos Energy serve major areas. Texas Eastern, Tennessee Gas, and Columbia Gas Transmission provide interstate access. Competitive rates $3.30–$4.60/MMBtu.',
+    highlights:['Louisville growing as Midwest data center market','Substantial data center tax incentives (KRS 139.495 — sales tax exemption)','Low electricity costs from legacy coal/gas generation mix','PJM territory in north, MISO in west — location matters for co-location rules'],
+    markets:['Louisville','Lexington','Elizabethtown','Bowling Green','Frankfort','Owensboro']
+  },
+  {
+    name:'Louisiana', abbr:'LA', fips:'22',
+    scores:{btm:8,land:6,gas:10,permitting:8,opposition:7,rto:6},
+    rto:'MISO / SPP (split territory)',
+    btm_note:'Louisiana DEQ follows federal EPA with no additional state restrictions on BTM nat gas. Louisiana is extremely gas-industry-friendly politically and regulatorily. Continuous BTM nat gas permits achievable in 6–12 months. State\'s history with large industrial energy users means experienced permitting consultants and agency staff.',
+    land_note:'Significant industrial land available along I-20, I-10 corridors. Gulf Coast industrial areas offer infrastructure-rich sites. Flood risk is a significant site-selection factor. Industrial land $5,000–$30,000/acre near infrastructure.',
+    gas_note:'Among the best nat gas access in the US. Louisiana is a major producing and transit state. Multiple interstate pipelines, abundant supply. Among the lowest industrial gas rates: $2.50–$3.80/MMBtu. Henry Hub is located in Louisiana.',
+    highlights:['Henry Hub located in Louisiana — best nat gas access in the US','LED (Louisiana Economic Development) offers significant incentives for qualifying data centers','Long history with large-scale industrial BTM nat gas generation','Gulf Coast hurricane risk requires resilient site design'],
+    markets:['Baton Rouge','New Orleans','Shreveport','Lafayette','Lake Charles','Monroe']
+  },
+  {
+    name:'Maine', abbr:'ME', fips:'23',
+    scores:{btm:4,land:6,gas:3,permitting:5,opposition:5,rto:4},
+    rto:'ISO-NE',
+    btm_note:'Maine DEP issues air quality permits. ISO-NE co-location rules apply. State has progressive energy policies that create uncertainty for long-term nat gas BTM investments. Permitting achievable but takes 14–22 months. No local nat gas production and limited pipeline infrastructure.',
+    land_note:'Rural land available at low costs but far from major data center markets and fiber infrastructure. Portland area more expensive. Limited workforce availability outside Portland metro.',
+    gas_note:'Among the most constrained nat gas markets in continental US. Dependent on Maritimes & Northeast Pipeline. Supply tight; prices volatile and high especially in winter. Industrial rates $5–$12+/MMBtu seasonally.',
+    highlights:['ISO-NE territory — co-location rules complex','Pipeline constraints create fuel supply risk for BTM nat gas','Cold climate beneficial for cooling','Limited workforce and infrastructure outside Portland area'],
+    markets:['Portland','Bangor','Augusta','Lewiston']
+  },
+  {
+    name:'Maryland', abbr:'MD', fips:'24',
+    scores:{btm:4,land:3,gas:5,permitting:4,opposition:4,rto:5},
+    rto:'PJM',
+    btm_note:'MDE (Maryland Department of the Environment) issues air quality permits with increasing state climate mandates. Maryland Clean Energy Jobs Act adds complexity to long-term nat gas planning. BTM nat gas permittable but state climate goals (net-zero by 2045) create regulatory risk. PJM co-location rules apply. Permitting 12–20 months.',
+    land_note:'High land costs especially near DC: $100K–$500K+/acre. Limited industrial parcel availability. Baltimore area more affordable but still constrained. Strong existing data center market in Northern Virginia (adjacent).',
+    gas_note:'Washington Gas and BGE serve major areas. Columbia Gas Transmission and Transcontinental Pipeline provide access. Industrial rates $4.50–$6.50/MMBtu — higher than mid-Atlantic average.',
+    highlights:['Proximity to Northern Virginia (world\'s largest data center market)','PJM co-location rules under evolution per FERC orders','State climate goals create long-term BTM nat gas regulatory risk','High costs but strategic location for federal/government data center users'],
+    markets:['Baltimore','Frederick','Rockville','Gaithersburg','Hagerstown']
+  },
+  {
+    name:'Massachusetts', abbr:'MA', fips:'25',
+    scores:{btm:2,land:2,gas:4,permitting:3,opposition:3,rto:4},
+    rto:'ISO-NE',
+    btm_note:'MassDEP imposes state-specific emission limits stricter than federal EPA for stationary sources. State Global Warming Solutions Act targets 80% GHG reduction by 2050 with near-term milestones creating significant regulatory risk for new nat gas infrastructure. Continuous BTM nat gas for prime power faces severe regulatory headwinds. Permitting 18–36+ months.',
+    land_note:'Extremely high land costs, very limited availability. Boston area industrial land $300K–$1.5M+/acre. Route 128/495 corridor more affordable but still high. Extremely constrained market.',
+    gas_note:'Constrained by ISO-NE pipeline limitations. Severe winter price spikes. Eversource Gas and National Grid serve major areas. Industrial rates some of highest nationally: $5–$12/MMBtu with winter spikes higher.',
+    highlights:['ISO-NE pipeline constraints make nat gas supply unreliable','State climate laws create existential regulatory risk for BTM nat gas investments','Among highest electricity costs in nation: $0.16–$0.25/kWh industrial','Not a recommended market for BTM nat gas data center development'],
+    markets:['Boston','Worcester','Springfield','Lowell']
+  },
+  {
+    name:'Michigan', abbr:'MI', fips:'26',
+    scores:{btm:6,land:6,gas:7,permitting:6,opposition:6,rto:6},
+    rto:'MISO',
+    btm_note:'Michigan DEQ/EGLE issues air quality permits following federal standards with some additional state requirements. Michigan has set clean energy goals that may affect long-term nat gas planning. BTM nat gas currently permittable; permits achievable in 10–16 months. MISO co-location rules apply.',
+    land_note:'Michigan has abundant industrial land especially in former manufacturing areas (Detroit metro, Grand Rapids). Land costs $5,000–$40,000/acre. Many utility-ready brownfield sites with existing power infrastructure.',
+    gas_note:'Consumers Energy and DTE Energy (Michigan Consolidated Gas) serve major areas. Michigan has significant underground gas storage. Vector Pipeline and Great Lakes Gas Transmission provide interstate access. Industrial rates $3.50–$4.80/MMBtu.',
+    highlights:['MISO territory — co-location rules actively developing','Former auto industry sites provide utility-ready brownfields at discount','Cold climate dramatically reduces cooling costs','Growing data center interest in Detroit and Grand Rapids corridors'],
+    markets:['Detroit','Grand Rapids','Lansing','Ann Arbor','Kalamazoo','Flint']
+  },
+  {
+    name:'Minnesota', abbr:'MN', fips:'27',
+    scores:{btm:5,land:7,gas:6,permitting:6,opposition:6,rto:6},
+    rto:'MISO',
+    btm_note:'Minnesota PCA issues air quality permits. State has increasing clean energy mandates (100% carbon-free electricity by 2040) that create long-term uncertainty for nat gas BTM investments. BTM nat gas currently permittable; timeline 10–16 months. MISO co-location rules apply.',
+    land_note:'Good land availability especially Greater Minnesota at low costs. Twin Cities industrial land $15,000–$60,000/acre. Rural land $2,000–$8,000/acre. Cold climate is excellent for data center cooling.',
+    gas_note:'CenterPoint Energy and Xcel Energy serve Twin Cities. Northern Natural Gas provides interstate access. Industrial rates $3.40–$4.80/MMBtu. Adequate supply but state\'s direction toward renewables may affect long-term gas availability.',
+    highlights:['Cold climate reduces cooling costs significantly','MISO co-location rules developing','State clean energy mandate creates long-term BTM nat gas risk','Twin Cities growing as Midwest data center hub (Cologix, Compass)'],
+    markets:['Minneapolis','St. Paul','Blaine','Shakopee','Rochester','Duluth']
+  },
+  {
+    name:'Mississippi', abbr:'MS', fips:'28',
+    scores:{btm:8,land:8,gas:8,permitting:9,opposition:9,rto:6},
+    rto:'MISO / Non-RTO (TVA/Entergy territory)',
+    btm_note:'Mississippi DEQ follows federal EPA with no additional state restrictions on BTM nat gas. One of the most permitting-friendly states in the Southeast. No prohibition on prime-power BTM nat gas. Air quality permits achievable in 5–9 months for continuous nat gas generation. Legislature very supportive of industrial energy development.',
+    land_note:'Very low-cost industrial land $1,000–$5,000/acre. Abundant large rural parcels near interstate corridors. Limited data center market presence = opportunity for first-mover advantage. Low property taxes.',
+    gas_note:'Multiple interstate pipelines including Boardwalk, Southern Natural Gas. Adequate supply and excellent Gulf Coast access. Industrial rates competitive $3.30–$4.60/MMBtu. Entergy Mississippi and Spire Mississippi serve major areas.',
+    highlights:['Among fastest permitting states for industrial air quality permits','Very low land and labor costs','Entergy Mississippi offers large-load custom rate negotiations','Minimal public opposition to industrial development'],
+    markets:['Jackson','Ridgeland','Flowood','Tupelo','Gulfport','Hattiesburg']
+  },
+  {
+    name:'Missouri', abbr:'MO', fips:'29',
+    scores:{btm:7,land:7,gas:7,permitting:7,opposition:7,rto:6},
+    rto:'MISO / SPP (split territory)',
+    btm_note:'Missouri Department of Natural Resources (DNR) issues air quality permits following federal standards. No additional state restrictions on BTM nat gas generation. Pro-business state government. Continuous operation permits achievable in 8–14 months. No prohibition on prime-power BTM nat gas.',
+    land_note:'Good land availability and moderate costs. Kansas City and St. Louis metro industrial land $10,000–$50,000/acre. Rural Missouri very affordable $2,000–$8,000/acre. Good infrastructure in established industrial corridors.',
+    gas_note:'Spire (Missouri Gas Energy) and Evergy serve major areas. Multiple interstate pipelines including Southern Union, Mississippi River Transmission. Competitive industrial rates $3.30–$4.60/MMBtu.',
+    highlights:['Kansas City growing as emerging data center market','St. Louis has established carrier-neutral colocation presence','MISO/SPP split — co-location policy depends on location','No state income tax on business entities (pass-through)'],
+    markets:['Kansas City','St. Louis','Springfield','Columbia','Jefferson City','Joplin']
+  },
+  {
+    name:'Montana', abbr:'MT', fips:'30',
+    scores:{btm:8,land:10,gas:6,permitting:8,opposition:9,rto:7},
+    rto:'Non-RTO (WECC / NorthWestern Energy)',
+    btm_note:'Montana DEQ follows federal EPA with no additional state restrictions on BTM nat gas generation. Very low population and industrial presence means permitting agencies responsive and permits achievable in 6–10 months. No prohibition on prime-power BTM nat gas.',
+    land_note:'Exceptional land availability at very low costs — some of the cheapest large industrial parcels in the continental US. $500–$3,000/acre for large rural tracts. Cold climate is a major cooling advantage. Very low property taxes.',
+    gas_note:'Montana has some nat gas production but primary supply comes via NorthWestern Energy pipelines and Montana-Dakota Utilities. Industrial rates $4.00–$5.50/MMBtu. Less pipeline diversity than midcontinent states.',
+    highlights:['Exceptional land at lowest prices in continental US','Cold climate virtually eliminates mechanical cooling costs','Very low opposition to industrial development','NorthWestern Energy flexible on large load arrangements','Limited fiber infrastructure in rural areas — an important consideration'],
+    markets:['Billings','Missoula','Great Falls','Bozeman','Helena']
+  },
+  {
+    name:'Nebraska', abbr:'NE', fips:'31',
+    scores:{btm:8,land:9,gas:7,permitting:8,opposition:8,rto:8},
+    rto:'SPP (Majority) / Non-RTO (NPPD/OPPD public power)',
+    btm_note:'Nebraska DEQ follows federal EPA with no state restrictions beyond federal requirements on BTM nat gas. Nebraska\'s unique public power structure (NPPD, OPPD, LES are public power entities — not investor-owned utilities) creates flexibility for BTM arrangements. Permitting achievable in 6–12 months.',
+    land_note:'Excellent land availability at low costs. Omaha metro industrial land $8,000–$30,000/acre. Rural Nebraska $1,000–$4,000/acre. Cold winters provide free cooling. Low property taxes.',
+    gas_note:'Northern Natural Gas and Black Hills Energy serve major areas. Good midcontinent pipeline access. Industrial rates $3.20–$4.40/MMBtu. Omaha metro has solid gas infrastructure.',
+    highlights:['Unique public power structure enables direct negotiation for large loads','Nebraska data center tax incentive: LB 1033 provides significant property/sales tax exemptions','Omaha growing as Midwest data center hub (Switch, supported by state incentives)','Low opposition to industrial development'],
+    markets:['Omaha','Lincoln','Bellevue','Papillion','Hastings','Grand Island']
+  },
+  {
+    name:'Nevada', abbr:'NV', fips:'32',
+    scores:{btm:7,land:8,gas:6,permitting:7,opposition:7,rto:7},
+    rto:'Non-RTO (WECC / NV Energy)',
+    btm_note:'Nevada Division of Environmental Protection issues air quality permits following federal standards. No additional state restrictions on BTM nat gas generation. Nevada energy policy has been evolving toward more distributed generation flexibility. Permits achievable in 9–14 months. No prohibition on prime-power BTM nat gas.',
+    land_note:'Reno/Sparks and North Las Vegas industrial areas offer significant data center land at competitive prices. Industrial land $15,000–$80,000/acre in established corridors. Large parcels available near I-80 and I-15. No state income tax.',
+    gas_note:'Southwest Gas provides distribution. Southwest Gas supplies via Kern River and El Paso Natural Gas pipelines. Industrial rates $4.00–$5.50/MMBtu. Less gas infrastructure depth than Texas or Gulf Coast states.',
+    highlights:['No state corporate or personal income tax','Nevada data center abatement: SB 440 provides significant tax incentives','Reno/Sparks is established data center hub: Switch, Microsoft, Apple, Amazon all have facilities','Switch annual reports note Nevada BTM flexibility as key advantage'],
+    markets:['Reno','Sparks','North Las Vegas','Henderson','Las Vegas','Fernley']
+  },
+  {
+    name:'New Hampshire', abbr:'NH', fips:'33',
+    scores:{btm:4,land:4,gas:4,permitting:5,opposition:5,rto:4},
+    rto:'ISO-NE',
+    btm_note:'NHDES issues permits following federal standards. ISO-NE territory applies complex co-location rules. State has moved toward clean energy policies. BTM nat gas permittable but ISO-NE pipeline constraints create fuel supply risk. Permitting 12–18 months.',
+    land_note:'Limited industrial land, particularly in southern NH near Boston metro influence. Some opportunity in northern areas but very remote. Land costs $30K–$150K/acre in accessible areas.',
+    gas_note:'Unitil and Liberty Utilities serve major areas via Granite State Gas. ISO-NE pipeline constraints affect winter supply reliability. Industrial rates $5–$10/MMBtu with seasonal spikes.',
+    highlights:['ISO-NE co-location rules add complexity','Pipeline constraints create BTM nat gas fuel risk in winter','No state income tax (but limited other advantages offset this)','Limited data center market presence'],
+    markets:['Manchester','Concord','Nashua','Portsmouth']
+  },
+  {
+    name:'New Jersey', abbr:'NJ', fips:'34',
+    scores:{btm:3,land:2,gas:5,permitting:4,opposition:3,rto:5},
+    rto:'PJM',
+    btm_note:'NJDEP issues air quality permits with some state-specific requirements. New Jersey has clean energy standards that create increasing regulatory risk for BTM nat gas. PJM co-location rules apply — FERC has been imposing more stringent co-location study requirements. Permitting 14–24 months. Dense state with limited large-site options.',
+    land_note:'Very limited industrial land, very high costs. $150K–$800K+/acre. Dense development, high property taxes, limited large parcels. Not competitive for large-scale data center campus development.',
+    gas_note:'South Jersey Industries and New Jersey Natural Gas serve areas. Texas Eastern, Transcontinental provide interstate access. Industrial rates $4.50–$6.50/MMBtu.',
+    highlights:['PJM territory — evolving co-location rules under FERC oversight','State clean energy goals create long-term BTM nat gas risk','High costs and dense development limit scale opportunities','Proximity to NYC creates some market demand'],
+    markets:['Newark','Jersey City','Piscataway','Linden','Parsippany']
+  },
+  {
+    name:'New Mexico', abbr:'NM', fips:'35',
+    scores:{btm:8,land:9,gas:9,permitting:7,opposition:8,rto:7},
+    rto:'Non-RTO (WECC / PNM, Xcel, TNMP territory)',
+    btm_note:'New Mexico Environment Department issues air quality permits following federal standards. No additional state restrictions on BTM nat gas. State is a major nat gas producing state with very permitting-friendly environment for energy projects. Continuous nat gas generation permits achievable in 7–12 months.',
+    land_note:'Exceptional land availability at very low costs. Rural land $500–$3,000/acre. Albuquerque and Santa Fe fringe areas $5,000–$20,000/acre. Large parcels easily assembled. Very low property taxes.',
+    gas_note:'New Mexico is a top-5 US nat gas producing state. Excellent pipeline infrastructure including Southern Union, El Paso Natural Gas, and others. Among the best industrial gas rates: $2.80–$4.00/MMBtu.',
+    highlights:['Major nat gas producing state with excellent supply access','New Mexico incentive programs for data centers and large industrials','WECC territory — no RTO co-location complexity for most of state','Albuquerque growing as emerging Southwest data center market'],
+    markets:['Albuquerque','Rio Rancho','Santa Fe','Farmington','Roswell','Hobbs']
+  },
+  {
+    name:'New York', abbr:'NY', fips:'36',
+    scores:{btm:3,land:2,gas:5,permitting:3,opposition:3,rto:4},
+    rto:'NYISO',
+    btm_note:'NYSDEC imposes stringent air quality regulations with state-specific requirements stricter than federal in many areas. New York Climate Leadership and Community Protection Act (CLCPA) mandates aggressive GHG reductions that create significant regulatory risk for new BTM nat gas investments. Continuous nat gas generation for prime power faces severe headwinds. NYISO has complex co-location rules. Permitting 18–36+ months.',
+    land_note:'NYC and metro area land extremely expensive ($500K–$5M+/acre). Upstate more affordable but data center markets limited. Albany, Buffalo, and Syracuse offer some opportunity. Infrastructure outside NYC is aging.',
+    gas_note:'Con Edison, National Fuel Gas serve major areas. Iroquois Gas and Tennessee Gas provide interstate access. Significant pipeline constraints in NYC metro. Industrial rates $4.50–$8/MMBtu (higher NYC area).',
+    highlights:['CLCPA creates fundamental regulatory risk for BTM nat gas','NYISO co-location rules complex and actively evolving','NYC metro has demand but land/cost/regulatory barriers are extreme','Upstate NY has some opportunity but limited scale and data center market'],
+    markets:['Buffalo','Albany','Syracuse','Rochester','Utica']
+  },
+  {
+    name:'North Carolina', abbr:'NC', fips:'37',
+    scores:{btm:6,land:6,gas:6,permitting:6,opposition:6,rto:6},
+    rto:'PJM (partial) / Non-RTO (Duke Energy Carolinas / Duke Energy Progress)',
+    btm_note:'North Carolina DEQ issues air quality permits following federal standards. State has clean energy legislation (HB 951) that is reshaping the regulatory environment. BTM nat gas permittable but state carbon reduction goals create uncertainty. Duke Energy\'s restructuring plans affect co-location policy. Permitting 10–16 months.',
+    land_note:'Research Triangle area (RTP) land moderately expensive and getting more so. Charlotte metro growing data center market. Western NC piedmont offers some opportunity at lower costs. Industrial land $15,000–$80,000/acre in metro areas.',
+    gas_note:'Piedmont Natural Gas (Duke Energy) and National Fuel Gas serve major areas. Transcontinental Pipeline provides interstate access. Industrial rates $3.80–$5.20/MMBtu.',
+    highlights:['Research Triangle has strong tech workforce and data center market','Duke Energy working through carbon reduction plans — BTM co-location evolving','State in transition from coal to gas/renewables — regulatory environment shifting','Charlotte growing rapidly as financial services data center hub'],
+    markets:['Charlotte','Raleigh','Durham','Greensboro','Winston-Salem','Research Triangle Park']
+  },
+  {
+    name:'North Dakota', abbr:'ND', fips:'38',
+    scores:{btm:9,land:9,gas:9,permitting:9,opposition:9,rto:6},
+    rto:'MISO / SPP (split territory)',
+    btm_note:'North Dakota Department of Environmental Quality issues air quality permits following federal standards with minimal additional state requirements. Extremely pro-industrial permitting environment. No state restrictions on BTM nat gas — state is a major oil and gas producer and politically very supportive of fossil fuel development. Permits achievable in 4–8 months.',
+    land_note:'Exceptional land availability at very low costs. Large rural parcels at $500–$2,500/acre. Very cold winters provide significant free cooling for data centers. Very low property taxes. Limited workforce availability.',
+    gas_note:'North Dakota is a major oil and gas producing state with abundant flared/associated gas and pipeline infrastructure. Industrial rates among lowest: $2.50–$3.80/MMBtu. Williston Basin production provides supply security.',
+    highlights:['Major nat gas producing state — excellent supply security','Among fastest permitting states in US','Extreme cold climate maximizes free cooling opportunities','Very low land costs and property taxes','Limited existing data center market and workforce — frontier opportunity'],
+    markets:['Fargo','Bismarck','Grand Forks','Minot','Williston']
+  },
+  {
+    name:'Ohio', abbr:'OH', fips:'39',
+    scores:{btm:6,land:5,gas:8,permitting:6,opposition:6,rto:5},
+    rto:'PJM',
+    btm_note:'Ohio EPA issues air quality permits following federal standards. Ohio is a major gas-consuming industrial state with well-developed permitting infrastructure. No unique state restrictions on BTM nat gas beyond federal EPA. However, PJM co-location rules under FERC oversight add complexity. Permitting 10–16 months.',
+    land_note:'Good industrial land availability especially in former manufacturing areas (Cleveland, Akron, Youngstown corridors). Costs $8,000–$40,000/acre. Columbus and Cincinnati markets growing. Many utility-ready brownfields available.',
+    gas_note:'Columbia Gas of Ohio (NiSource), Dominion Energy Ohio, and Vectren serve major areas. Significant Appalachian Basin gas production nearby (Utica/Marcellus). Industrial rates $3.00–$4.20/MMBtu — very competitive.',
+    highlights:['Excellent access to Appalachian Basin (Utica/Marcellus) nat gas','Columbus growing as Midwest data center market (AWS massive investment)','PJM co-location rules evolving under FERC pressure','Strong industrial workforce heritage for construction and operations'],
+    markets:['Columbus','Cleveland','Cincinnati','Dayton','Dublin','New Albany']
+  },
+  {
+    name:'Oklahoma', abbr:'OK', fips:'40',
+    scores:{btm:9,land:9,gas:10,permitting:9,opposition:9,rto:7},
+    rto:'SPP',
+    btm_note:'Oklahoma DEQ follows federal EPA standards with no additional state restrictions whatsoever on BTM nat gas generation. Oklahoma is the most permitting-friendly state in the US for nat gas energy projects. The Oklahoma Corporation Commission has a long history of supporting oil and gas industry. Continuous operation permits achievable in 4–8 months. Strongly pro-fossil-fuel legislature and regulatory culture.',
+    land_note:'Exceptional land availability at low costs. Industrial land $1,000–$6,000/acre. Tulsa and OKC metros have good infrastructure with lower costs than major metros. Very low property taxes. Abundant large parcels along highway corridors.',
+    gas_note:'Oklahoma is one of the top nat gas producing states in the US. Excellent pipeline infrastructure including Multiple interstate pipelines (Enable Midstream, Williams, ONEOK). Among the lowest industrial gas rates in the US: $2.50–$3.60/MMBtu.',
+    highlights:['Top-tier nat gas production state — best supply access in US along with Texas and Louisiana','OCC among fastest and most permitting-friendly agencies in US for energy projects','No state restrictions on BTM nat gas — extremely clear regulatory path','SPP territory: co-location policies more flexible than PJM/NYISO/ISO-NE','OGE (Oklahoma Gas & Electric) has data center-specific large load tariffs'],
+    markets:['Oklahoma City','Tulsa','Edmond','Norman','Broken Arrow','Lawton']
+  },
+  {
+    name:'Oregon', abbr:'OR', fips:'41',
+    scores:{btm:4,land:6,gas:5,permitting:4,opposition:4,rto:6},
+    rto:'Non-RTO (WECC / PacifiCorp, Portland General Electric)',
+    btm_note:'Oregon DEQ issues air quality permits with state-specific requirements. Oregon Climate Protection Program imposes declining nat gas use caps. State has ambitious GHG reduction goals that create significant regulatory risk for new BTM nat gas generation investments. Permitting is achievable but increasingly complex. Timeline 14–22 months.',
+    land_note:'Portland metro land moderately expensive. Hillsboro/Beaverton (Silicon Forest) is established data center corridor. Rural Oregon offers lower costs. Industrial land $25,000–$150,000/acre near Portland.',
+    gas_note:'NW Natural serves Portland and Oregon Valley. Williams Northwest Pipeline provides interstate access. Adequate supply but state policies may reduce long-term nat gas availability. Industrial rates $4.50–$6.00/MMBtu.',
+    highlights:['Portland area established data center hub (Amazon, Google, Daimler data centers)','Oregon Climate Protection Program creates major regulatory risk for BTM nat gas','State tax incentives for data centers have been modified/reduced over time','WECC territory — no RTO co-location complexity outside of organized markets'],
+    markets:['Hillsboro','Portland','Beaverton','Salem','Eugene','Prineville']
+  },
+  {
+    name:'Pennsylvania', abbr:'PA', fips:'42',
+    scores:{btm:6,land:4,gas:9,permitting:5,opposition:5,rto:5},
+    rto:'PJM',
+    btm_note:'Pennsylvania DEP issues air quality permits. Pennsylvania is the largest Appalachian Basin gas producing state (Marcellus Shale) with excellent supply, but PJM co-location rules under FERC oversight add complexity for co-located generation. No state restrictions on BTM nat gas beyond federal, but PJM administrative requirements add process. Permitting 12–18 months.',
+    land_note:'Western Pennsylvania brownfields abundant but infrastructure varies. Philadelphia suburbs expensive ($50K–$200K+/acre). Pittsburgh and Central PA offer lower costs. Eastern PA near data center corridor (Allentown area) has good availability.',
+    gas_note:'Pennsylvania is one of the top nat gas producing states — Marcellus/Utica Shale. UGI, Peoples Natural Gas serve major areas. Excellent supply access. Among best industrial gas rates: $2.80–$3.80/MMBtu.',
+    highlights:['Largest Appalachian Basin producer — excellent nat gas supply','PJM co-location rules increasingly complex under FERC Order 2023','Allentown/Lehigh Valley established as mid-Atlantic data center hub','Significant data center incentive programs available'],
+    markets:['Philadelphia','Pittsburgh','Allentown','Reading','Harrisburg','Bethlehem']
+  },
+  {
+    name:'Rhode Island', abbr:'RI', fips:'44',
+    scores:{btm:2,land:2,gas:4,permitting:4,opposition:4,rto:4},
+    rto:'ISO-NE',
+    btm_note:'Rhode Island DEM issues permits. ISO-NE territory, pipeline constraints, and state clean energy ambitions (100% renewable by 2033) make BTM nat gas for prime power an extremely challenging proposition. Not a recommended market for BTM nat gas data center development.',
+    land_note:'Smallest state — extremely limited industrial land. Very high costs, very limited large parcel availability.',
+    gas_note:'New England Gas serves via National Grid and Iroquois/Tennessee Gas Pipeline. Winter pipeline constraints drive price spikes. Industrial rates $5–$12+/MMBtu seasonally.',
+    highlights:['ISO-NE territory with complex co-location rules','State targets 100% renewable energy by 2033','Pipeline constraints create serious BTM nat gas fuel supply risk','Not recommended for BTM nat gas data center development'],
+    markets:['Providence','Warwick','Cranston']
+  },
+  {
+    name:'South Carolina', abbr:'SC', fips:'45',
+    scores:{btm:7,land:6,gas:6,permitting:7,opposition:7,rto:8},
+    rto:'Non-RTO (Duke Energy Carolinas / Dominion Energy SC)',
+    btm_note:'South Carolina DHEC issues air quality permits following federal standards. No unique state restrictions on BTM nat gas. South Carolina is non-RTO, enabling direct utility agreements with Duke Energy and Dominion Energy SC. No prohibition on prime-power BTM nat gas. Permitting achievable in 8–14 months.',
+    land_note:'Upstate SC (Greenville/Spartanburg) and Midlands (Columbia) offer good industrial land at moderate costs. Industrial land $10,000–$50,000/acre. Coastal areas (Charleston) more expensive. Strong manufacturing base provides infrastructure.',
+    gas_note:'Dominion Energy SC (SCANA legacy) and Piedmont Natural Gas serve major areas. Southern Natural Gas and Transcontinental Pipeline provide interstate access. Industrial rates $3.80–$5.20/MMBtu.',
+    highlights:['Non-RTO status enables flexible BTM and co-location utility negotiations','South Carolina data center incentives available','Greenville-Spartanburg growing as Southeast data center market','BMW, Michelin, Boeing manufacturing creates proven industrial infrastructure'],
+    markets:['Greenville','Columbia','Spartanburg','Charleston','Anderson','Rock Hill']
+  },
+  {
+    name:'South Dakota', abbr:'SD', fips:'46',
+    scores:{btm:9,land:9,gas:6,permitting:9,opposition:9,rto:7},
+    rto:'MISO / SPP (split territory)',
+    btm_note:'South Dakota DENR follows federal EPA with minimal additional requirements. Extremely pro-business permitting environment. No state restrictions on BTM nat gas generation. Air quality permits for continuous generation achievable in 4–8 months. Legislature very supportive of industrial development.',
+    land_note:'Exceptional land availability at very low costs. Large parcels at $500–$3,000/acre. Sioux Falls metro has better infrastructure. Cold climate excellent for free cooling. No state income tax.',
+    gas_note:'Black Hills Energy and Montana-Dakota Utilities serve major areas. Northern Natural Gas provides interstate access. Nat gas infrastructure less robust than midcontinent states. Industrial rates $3.80–$5.00/MMBtu.',
+    highlights:['No state corporate or personal income tax','Among fastest permitting states in US','Cold climate maximizes free cooling','Limited existing data center market — frontier opportunity','Less robust nat gas infrastructure than TX/OK/LA but adequate for BTM applications'],
+    markets:['Sioux Falls','Rapid City','Aberdeen','Brookings','Watertown']
+  },
+  {
+    name:'Tennessee', abbr:'TN', fips:'47',
+    scores:{btm:8,land:7,gas:7,permitting:8,opposition:8,rto:7},
+    rto:'Non-RTO (TVA territory predominantly)',
+    btm_note:'Tennessee TDEC issues air quality permits following federal standards. No state restrictions on BTM nat gas beyond federal EPA. Tennessee Valley Authority (TVA) serves most of the state and has historically been flexible on large industrial load with on-site generation. No prohibition on prime-power BTM nat gas. Permitting achievable in 8–14 months.',
+    land_note:'Good land availability at moderate costs. Nashville metro industrial land growing in price: $20,000–$80,000/acre. East Tennessee (Knoxville/Oak Ridge corridor) more affordable. Memphis area offers logistics advantages. Cold winters in East TN provide some free cooling.',
+    gas_note:'Atmos Energy and East Tennessee Natural Gas serve major areas. Transcontinental Gas Pipeline and Tennessee Gas Pipeline provide interstate access. Competitive industrial rates $3.50–$4.80/MMBtu.',
+    highlights:['TVA territory covers most of state — direct TVA large-load agreements possible','No state income tax on earned income','Nashville area major data center growth market (Colo Atl, Aligned Energy)','Oak Ridge National Lab proximity creates government data center interest'],
+    markets:['Nashville','Memphis','Knoxville','Chattanooga','Murfreesboro','Franklin']
+  },
+  {
+    name:'Texas', abbr:'TX', fips:'48',
+    scores:{btm:9,land:9,gas:10,permitting:9,opposition:8,rto:9},
+    rto:'ERCOT (state-regulated, no FERC jurisdiction)',
+    btm_note:'CRITICAL ADVANTAGE: ERCOT operates under Texas state jurisdiction with NO FERC oversight, giving data center and BTM generation projects maximum flexibility. TCEQ (Texas Commission on Environmental Quality) administers air quality permits — while rigorous, TCEQ is experienced with large-scale industrial projects and timelines are 8–14 months for new-source review. Texas has NO unique state restrictions on BTM nat gas generation beyond federal EPA. The PUC of Texas and ERCOT have created explicit frameworks for behind-the-meter large loads. Senate Bill 6 (2023) established specific provisions for large loads > 75 MW with on-site generation.',
+    land_note:'Exceptional land availability and pricing. Industrial land in rural Texas $1,000–$5,000/acre. DFW metro fringe $15,000–$50,000/acre. San Antonio, Houston, and Austin corridors competitive. Abundant large parcels easily assembled. Very low property taxes on industrial.',
+    gas_note:'Texas has the best nat gas supply access in the US. Massive pipeline network, enormous production base, and Henry Hub pricing influence. Multiple LDCs: CenterPoint Energy, Atmos Energy, TXU Energy. Industrial rates: $2.50–$3.50/MMBtu — among the lowest in the US. XTO Energy, Pioneer, Devon and other producers provide direct supply options.',
+    highlights:['ERCOT\'s non-FERC status is a unique BTM advantage — no federal RTO co-location rules','SB 6 (2023) explicitly addresses large BTM loads and on-site generation','TCEQ experienced with industrial scale air permitting','No state income tax — strong fiscal incentive','Chapter 313/312 economic development agreements available for major projects','Texas is the #1 ranked state for data center BTM nat gas development','Dallas-Fort Worth, San Antonio, and Houston are among top US data center markets'],
+    markets:['Dallas','Fort Worth','San Antonio','Houston','Austin','Midland','Abilene','San Angelo','Laredo','Corpus Christi']
+  },
+  {
+    name:'Utah', abbr:'UT', fips:'49',
+    scores:{btm:7,land:7,gas:7,permitting:7,opposition:7,rto:7},
+    rto:'Non-RTO (WECC / Rocky Mountain Power)',
+    btm_note:'Utah Division of Air Quality issues air quality permits following federal standards. No unique state restrictions on BTM nat gas beyond federal EPA. Utah has been working to balance industrial development with air quality goals (Wasatch Front inversions). Permits achievable in 9–15 months. No prohibition on prime-power BTM nat gas.',
+    land_note:'Salt Lake City metro industrial land: $20,000–$80,000/acre. Lehi/Silicon Slopes corridor growing rapidly. Rural Utah very affordable. Utah Lake area and I-15 corridor have good infrastructure access.',
+    gas_note:'Questar Gas (Dominion Energy Utah) serves major areas. Wyoming/Colorado production provides supply. Industrial rates $3.50–$4.80/MMBtu. Good pipeline access via Colorado Interstate Gas and others.',
+    highlights:['Salt Lake City/Lehi "Silicon Slopes" growing data center corridor (Oracle, eBay, Microsoft)','Rocky Mountain Power (PacifiCorp) flexible on large load agreements','No state RTO membership — direct utility negotiations','Wasatch Front air quality inversions can complicate permitting near metro areas'],
+    markets:['Salt Lake City','Lehi','Draper','Provo','Ogden','West Jordan']
+  },
+  {
+    name:'Vermont', abbr:'VT', fips:'50',
+    scores:{btm:3,land:5,gas:3,permitting:5,opposition:4,rto:4},
+    rto:'ISO-NE',
+    btm_note:'Vermont ANR issues permits. State has aggressive clean energy and climate goals. No nat gas production; dependent on pipeline supply from Canada and New England pipelines subject to ISO-NE constraints. BTM nat gas for prime power faces significant regulatory headwinds in Vermont\'s political environment.',
+    land_note:'Rural land available at moderate costs, but very limited industrial infrastructure and workforce. Burlington area more expensive. Remote location from major data center markets.',
+    gas_note:'Vermont Gas Systems serves only a portion of the state. ISO-NE pipeline constraints affect supply reliability. Winter price spikes. Industrial rates $5–$10+/MMBtu.',
+    highlights:['State has strong clean energy/climate policy orientation','ISO-NE pipeline constraints create BTM nat gas fuel risk','Limited data center market and workforce','Burlington is primary population and infrastructure center'],
+    markets:['Burlington','Montpelier','Rutland']
+  },
+  {
+    name:'Virginia', abbr:'VA', fips:'51',
+    scores:{btm:5,land:5,gas:7,permitting:5,opposition:5,rto:5},
+    rto:'PJM',
+    btm_note:'Virginia DEQ issues air quality permits. Virginia Clean Economy Act (VCEA) mandates 100% carbon-free electricity by 2050 for Dominion and Appalachian Power, creating long-term regulatory risk for BTM nat gas. PJM co-location rules apply and are evolving under FERC oversight. However, Virginia has the world\'s largest data center concentration and experience with large-load arrangements. Permits achievable in 12–18 months.',
+    land_note:'Northern Virginia (Loudoun, Prince William Counties) — world\'s largest data center market — has increasingly limited land at premium prices: $150K–$500K+/acre. Further out in Culpeper, Charlottesville, Roanoke areas: $20K–$80K/acre.',
+    gas_note:'Washington Gas, Roanoke Gas, and Appalachian Natural Gas serve major areas. Transcontinental, Columbia Gas Transmission, and Dominion Transmission provide interstate access. Industrial rates $3.80–$5.50/MMBtu. Good supply access.',
+    highlights:['World\'s largest data center market in Northern Virginia (AWS, Microsoft, Google, Meta, etc.)','VCEA creates long-term BTM nat gas regulatory risk — utilities under carbon mandate','PJM co-location rules increasingly complex per FERC guidance','Land in Northern VA nearly exhausted — Prince William County is active new frontier'],
+    markets:['Ashburn','Sterling','Manassas','Richmond','Charlottesville','Roanoke']
+  },
+  {
+    name:'Washington', abbr:'WA', fips:'53',
+    scores:{btm:4,land:5,gas:5,permitting:5,opposition:4,rto:6},
+    rto:'Non-RTO (WECC / Puget Sound Energy, Pacific Power, Avista)',
+    btm_note:'Washington Ecology Department issues air quality permits. Washington Clean Energy Transformation Act mandates carbon-free electricity by 2045. Cap-and-Trade program under Climate Commitment Act (CCA) affects large emission sources including nat gas generators. BTM nat gas for prime power faces increasing regulatory and cost burdens. Permitting 12–20 months.',
+    land_note:'Seattle metro industrial land: $80K–$300K+/acre. Eastern Washington (Quincy, Wenatchee) has existing data center presence with lower land costs. Cold Columbia Basin microclimate good for cooling.',
+    gas_note:'Puget Sound Energy and Cascade Natural Gas serve major areas. Northwest Pipeline provides interstate supply. Industrial rates $4.50–$6.00/MMBtu. Washington\'s CCA adds carbon cost to nat gas combustion.',
+    highlights:['Climate Commitment Act adds carbon cost to nat gas BTM generation','Quincy/Wenatchee "Silicon Valley of Data Centers" has significant existing hyperscaler presence','Abundant hydroelectric power alternatives','State policy actively discouraging nat gas investments'],
+    markets:['Quincy','Seattle','Wenatchee','Spokane','Yakima','Tacoma']
+  },
+  {
+    name:'West Virginia', abbr:'WV', fips:'54',
+    scores:{btm:8,land:7,gas:9,permitting:7,opposition:7,rto:5},
+    rto:'PJM',
+    btm_note:'West Virginia DEP follows federal EPA standards with no additional state restrictions on BTM nat gas. West Virginia is a major Appalachian Basin (Marcellus/Utica) producer and politically very supportive of fossil fuel development. No prohibition on prime-power BTM nat gas. PJM co-location rules apply but the state\'s pro-energy culture means experienced advocacy resources available.',
+    land_note:'Low-cost land in rural areas $2,000–$10,000/acre. Former coal industry sites provide utility-ready brownfields in some areas. Limited major metro data center market but strategic for energy-dense applications.',
+    gas_note:'Mountaineer Gas and Equitable Gas serve major areas. Excellent access to Appalachian Basin production. Trans-Allegheny Interstate Line and Dominion Transmission provide pipeline access. Industrial rates $2.80–$4.00/MMBtu — excellent.',
+    highlights:['Major Appalachian Basin nat gas producer with excellent supply','Pro-fossil-fuel state government and regulatory environment','PJM territory adds co-location complexity but manageable','Emerging as potential data center market due to energy advantages','WV Forward tax incentives available for qualifying projects'],
+    markets:['Charleston','Huntington','Morgantown','Martinsburg','Parkersburg']
+  },
+  {
+    name:'Wisconsin', abbr:'WI', fips:'55',
+    scores:{btm:6,land:6,gas:6,permitting:6,opposition:6,rto:6},
+    rto:'MISO',
+    btm_note:'Wisconsin DNR issues air quality permits following federal standards. No unique state restrictions on BTM nat gas beyond federal EPA. MISO co-location rules apply. State has set clean energy goals that may affect long-term planning. Permitting achievable in 10–16 months.',
+    land_note:'Good industrial land availability. Milwaukee metro: $15,000–$60,000/acre. Rural Wisconsin more affordable. Cold winters provide free cooling benefits. Strong manufacturing infrastructure.',
+    gas_note:'WE Energies, Alliant Energy, and Peoples Energy serve major areas. ANR Pipeline and Northern Natural Gas provide interstate access. Industrial rates $3.30–$4.60/MMBtu.',
+    highlights:['MISO co-location rules under active development','Cold climate beneficial for data center cooling','Milwaukee area has established industrial infrastructure','Limited but growing data center market presence'],
+    markets:['Milwaukee','Madison','Green Bay','Waukesha','Racine','Kenosha']
+  },
+  {
+    name:'Wyoming', abbr:'WY', fips:'56',
+    scores:{btm:9,land:10,gas:8,permitting:9,opposition:9,rto:8},
+    rto:'Non-RTO (WECC / Rocky Mountain Power / Basin Electric)',
+    btm_note:'Wyoming DEQ follows federal EPA with minimal additional requirements. Wyoming has the most favorable regulatory environment for BTM nat gas of any western state. No state restrictions on BTM nat gas generation. Strong political support for fossil fuel industries at all levels of state government. Air quality permits for continuous generation achievable in 5–9 months. No prohibition on prime-power BTM nat gas.',
+    land_note:'Cheapest large-parcel industrial land in the continental US outside of North Dakota. $300–$2,000/acre for large rural tracts. Cold climate is excellent for free cooling. No state income tax, no corporate income tax. Very low property taxes.',
+    gas_note:'Wyoming is a major nat gas producing state (Green River Basin, Wyoming Overthrust Belt). Excellent pipeline infrastructure. Kern River Gas Transmission, WIC, and Cheyenne Plains Gas Pipeline provide strong access. Industrial rates $3.20–$4.20/MMBtu. Supply reliability excellent.',
+    highlights:['No state income tax, no corporate income tax — strongest fiscal environment in US','Cold climate virtually eliminates mechanical cooling costs for data centers','WECC but not part of an organized RTO — maximum flexibility for BTM arrangements','Wyoming is #2 ranked state for BTM nat gas data center development','Major nat gas producer with supply security','Legislature actively supportive of industrial energy development','Cheyenne and Casper areas have growing data center infrastructure interest'],
+    markets:['Cheyenne','Casper','Laramie','Gillette','Rock Springs','Evanston']
+  }
+];
+
+// Factor definitions
+const FACTORS = [
+  { key:'btm',         label:'BTM Nat Gas Regs',         icon:'📜' },
+  { key:'land',        label:'Land Availability & Cost',  icon:'🏔️' },
+  { key:'gas',         label:'Nat Gas Availability',      icon:'🔥' },
+  { key:'permitting',  label:'Permitting Timeline',       icon:'⏱️' },
+  { key:'opposition',  label:'Public Opposition',         icon:'📣' },
+  { key:'rto',         label:'RTO/ISO Co-location',       icon:'⚡' }
+];
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+const state = {
+  activeFactors: { btm:true, land:true, gas:true, permitting:true, opposition:true, rto:true },
+  weights:       { btm:5,    land:3,    gas:4,    permitting:4,    opposition:3,    rto:4 },
+  viewMode: 'composite',
+  selectedState: null
+};
+
+// ─────────────────────────────────────────────
+// SCORING
+// ─────────────────────────────────────────────
+function compositeScore(sd) {
+  let total = 0, wsum = 0;
+  FACTORS.forEach(f => {
+    if (state.activeFactors[f.key]) {
+      const w = state.weights[f.key];
+      total += sd.scores[f.key] * w;
+      wsum += w;
+    }
+  });
+  return wsum === 0 ? 0 : +(total / wsum).toFixed(2);
+}
+
+function scoreColor(score) {
+  if (score >= 8)  return '#1a9e3a';
+  if (score >= 6.5) return '#52b352';
+  if (score >= 5)  return '#e0b040';
+  if (score >= 3.5) return '#e07030';
+  return '#c03025';
+}
+
+function scoreClass(score) {
+  if (score >= 8)  return 'bg-a';
+  if (score >= 6.5) return 'bg-b';
+  if (score >= 5)  return 'bg-c';
+  if (score >= 3.5) return 'bg-d';
+  return 'bg-e';
+}
+
+function scoreTextClass(score) {
+  if (score >= 8)  return 'c-a';
+  if (score >= 6.5) return 'c-b';
+  if (score >= 5)  return 'c-c';
+  if (score >= 3.5) return 'c-d';
+  return 'c-e';
+}
+
+function scoreGrade(score) {
+  if (score >= 8.5) return 'A+';
+  if (score >= 8)   return 'A';
+  if (score >= 7.5) return 'A-';
+  if (score >= 7)   return 'B+';
+  if (score >= 6.5) return 'B';
+  if (score >= 6)   return 'B-';
+  if (score >= 5.5) return 'C+';
+  if (score >= 5)   return 'C';
+  if (score >= 4.5) return 'C-';
+  if (score >= 4)   return 'D';
+  return 'F';
+}
+
+function displayScore(sd) {
+  if (state.viewMode === 'composite') return compositeScore(sd);
+  return sd.scores[state.viewMode];
+}
+
+// ─────────────────────────────────────────────
+// MAP
+// ─────────────────────────────────────────────
+const svg = d3.select('#map-svg');
+const tooltip = document.getElementById('tooltip');
+let projection, pathGen, mapReady = false;
+let stateById = {};
+
+STATES.forEach(s => { stateById[s.fips] = s; });
+
+// Small state abbreviations we skip labels for (too small)
+const SMALL_STATES = new Set(['09','10','25','33','44','50','24','34','08','DE','CT','RI','MA','NH','VT','NJ']);
+
+async function initMap() {
+  const us = await d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json');
+
+  const width = document.getElementById('map-area').clientWidth;
+  const height = document.getElementById('map-area').clientHeight;
+
+  svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+  projection = d3.geoAlbersUsa()
+    .scale(width * 1.25)
+    .translate([width / 2, height / 2]);
+
+  pathGen = d3.geoPath().projection(projection);
+
+  const states = topojson.feature(us, us.objects.states);
+  const mesh = topojson.mesh(us, us.objects.states, (a,b) => a !== b);
+
+  // Draw state fills
+  svg.append('g').attr('class', 'states-group')
+    .selectAll('path')
+    .data(states.features)
+    .enter()
+    .append('path')
+    .attr('class', 'state-path')
+    .attr('d', pathGen)
+    .attr('id', d => 'state-' + d.id)
+    .attr('fill', d => {
+      const sd = stateById[String(d.id).padStart(2,'0')];
+      if (!sd) return '#2a3040';
+      return scoreColor(displayScore(sd));
+    })
+    .on('mouseover', function(event, d) {
+      const sd = stateById[String(d.id).padStart(2,'0')];
+      if (!sd) return;
+      showTooltip(event, sd);
+    })
+    .on('mousemove', function(event, d) {
+      const sd = stateById[String(d.id).padStart(2,'0')];
+      if (!sd) return;
+      positionTooltip(event);
+    })
+    .on('mouseout', function() {
+      tooltip.classList.remove('visible');
+    })
+    .on('click', function(event, d) {
+      const sd = stateById[String(d.id).padStart(2,'0')];
+      if (!sd) return;
+      selectState(sd, String(d.id).padStart(2,'0'));
+    });
+
+  // Draw state borders mesh
+  svg.append('path')
+    .datum(mesh)
+    .attr('fill', 'none')
+    .attr('stroke', '#0d1117')
+    .attr('stroke-width', 0.8)
+    .attr('d', pathGen)
+    .attr('pointer-events', 'none');
+
+  // State abbreviation labels
+  svg.append('g').attr('class', 'labels-group')
+    .selectAll('text')
+    .data(states.features)
+    .enter()
+    .append('text')
+    .attr('class', d => {
+      const fips = String(d.id).padStart(2,'0');
+      return SMALL_STATES.has(fips) ? 'state-label state-label-sm' : 'state-label';
+    })
+    .attr('transform', d => {
+      const c = pathGen.centroid(d);
+      return c.some(isNaN) ? 'translate(-999,-999)' : `translate(${c})`;
+    })
+    .text(d => {
+      const sd = stateById[String(d.id).padStart(2,'0')];
+      return sd ? sd.abbr : '';
+    });
+
+  mapReady = true;
+  updateMap();
+  updateRankings();
+  document.getElementById('map-hint').style.opacity = '1';
+}
+
+function updateMap() {
+  if (!mapReady) return;
+  svg.selectAll('.state-path')
+    .attr('fill', function(d) {
+      const sd = stateById[String(d.id).padStart(2,'0')];
+      if (!sd) return '#2a3040';
+      return scoreColor(displayScore(sd));
+    });
+}
+
+function showTooltip(event, sd) {
+  const score = displayScore(sd);
+  let rows = '';
+  if (state.viewMode === 'composite') {
+    FACTORS.forEach(f => {
+      if (state.activeFactors[f.key]) {
+        rows += `<div class="tt-row"><span>${f.icon} ${f.label}</span><span>${sd.scores[f.key]}/10</span></div>`;
+      }
+    });
+  }
+  tooltip.innerHTML = `
+    <div class="tt-name">${sd.name}</div>
+    <div class="tt-score ${scoreTextClass(score)}">${score.toFixed(1)}<span style="font-size:0.7rem;color:var(--text-muted)">/10</span></div>
+    ${rows}
+    <div style="font-size:0.62rem;color:var(--text-muted);margin-top:4px">Click for detailed analysis</div>
+  `;
+  tooltip.classList.add('visible');
+  positionTooltip(event);
+}
+
+function positionTooltip(event) {
+  const area = document.getElementById('map-area').getBoundingClientRect();
+  let x = event.clientX - area.left + 14;
+  let y = event.clientY - area.top - 10;
+  const ttW = 200, ttH = 180;
+  if (x + ttW > area.width) x = event.clientX - area.left - ttW - 14;
+  if (y + ttH > area.height) y = event.clientY - area.top - ttH - 10;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+
+// ─────────────────────────────────────────────
+// STATE SELECTION
+// ─────────────────────────────────────────────
+function selectState(sd, fips) {
+  state.selectedState = fips;
+  svg.selectAll('.state-path').classed('selected', false);
+  d3.select('#state-' + parseInt(fips)).classed('selected', true);
+  renderDetailPanel(sd);
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('map-hint').style.display = 'none';
+}
+
+function renderDetailPanel(sd) {
+  const score = compositeScore(sd);
+  const grade = scoreGrade(score);
+  document.getElementById('dp-name').textContent = `${sd.abbr} — ${sd.name}`;
+  document.getElementById('dp-rto').textContent = sd.rto;
+  document.getElementById('dp-score').textContent = score.toFixed(1);
+  document.getElementById('dp-score').className = `dp-score-big ${scoreTextClass(score)}`;
+  const gradeEl = document.getElementById('dp-grade');
+  gradeEl.textContent = grade;
+  gradeEl.className = `dp-grade ${scoreClass(score)}`;
+  gradeEl.style.color = 'white';
+
+  // Factor bars
+  const barsEl = document.getElementById('dp-bars');
+  barsEl.innerHTML = '';
+  FACTORS.forEach(f => {
+    const val = sd.scores[f.key];
+    const isActive = state.activeFactors[f.key];
+    const pct = (val / 10) * 100;
+    barsEl.innerHTML += `
+      <div class="factor-bar-row" style="opacity:${isActive?1:0.4}">
+        <div class="factor-bar-label" title="${f.label}">${f.icon} ${f.label}</div>
+        <div class="factor-bar-wrap">
+          <div class="factor-bar-fill ${scoreClass(val)}" style="width:${pct}%"></div>
+        </div>
+        <div class="factor-bar-val ${scoreTextClass(val)}">${val}</div>
+      </div>
+    `;
+  });
+
+  // Notes
+  document.getElementById('dp-btm-note').innerHTML = `<strong>Regulatory Assessment</strong>${sd.btm_note}`;
+  document.getElementById('dp-land-note').innerHTML = `<strong>Land Overview</strong>${sd.land_note}`;
+  document.getElementById('dp-gas-note').innerHTML = `<strong>Natural Gas Supply</strong>${sd.gas_note}`;
+
+  // Highlights
+  const hl = document.getElementById('dp-highlights');
+  hl.innerHTML = sd.highlights.map(h => `<div class="dp-highlight">${h}</div>`).join('');
+
+  // Markets
+  const ml = document.getElementById('dp-markets');
+  ml.innerHTML = sd.markets.map(m => `<span class="market-tag">${m}</span>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// RANKINGS
+// ─────────────────────────────────────────────
+function updateRankings() {
+  const ranked = [...STATES]
+    .map(sd => ({ sd, score: compositeScore(sd) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  const list = document.getElementById('rankings-list');
+  list.innerHTML = ranked.map((item, i) => `
+    <div class="rank-item" data-fips="${item.sd.fips}">
+      <span class="rank-num">${i+1}</span>
+      <span class="rank-abbr">${item.sd.abbr}</span>
+      <span class="rank-name">${item.sd.name}</span>
+      <span class="rank-score ${scoreClass(item.score)}" style="color:white">${item.score.toFixed(1)}</span>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.rank-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const fips = el.dataset.fips;
+      const sd = stateById[fips];
+      if (sd) selectState(sd, fips);
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+// CONTROLS
+// ─────────────────────────────────────────────
+
+// Factor toggles
+document.querySelectorAll('.factor-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const f = btn.dataset.factor;
+    state.activeFactors[f] = !state.activeFactors[f];
+    btn.classList.toggle('on');
+    document.getElementById('card-' + f).classList.toggle('disabled', !state.activeFactors[f]);
+    updateMap();
+    updateRankings();
+    if (state.selectedState) {
+      const sd = stateById[state.selectedState];
+      if (sd) renderDetailPanel(sd);
+    }
+  });
+});
+
+// Weight sliders
+document.querySelectorAll('.weight-slider').forEach(slider => {
+  slider.addEventListener('input', () => {
+    const f = slider.dataset.factor;
+    state.weights[f] = parseInt(slider.value);
+    document.getElementById('wval-' + f).textContent = slider.value;
+    updateMap();
+    updateRankings();
+    if (state.selectedState) {
+      const sd = stateById[state.selectedState];
+      if (sd) renderDetailPanel(sd);
+    }
+  });
+});
+
+// View mode buttons
+document.querySelectorAll('.view-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.viewMode = btn.dataset.view;
+    updateMap();
+    if (state.selectedState) {
+      const sd = stateById[state.selectedState];
+      if (sd) renderDetailPanel(sd);
+    }
+  });
+});
+
+// Close detail panel
+document.getElementById('detail-close').addEventListener('click', () => {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('map-hint').style.display = '';
+  svg.selectAll('.state-path').classed('selected', false);
+  state.selectedState = null;
+});
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+initMap().catch(err => {
+  console.error('Map load error:', err);
+  document.getElementById('map-area').innerHTML =
+    '<div style="color:var(--text-muted);padding:40px;text-align:center">Map unavailable — ensure CDN access</div>';
+});
+</script>
+</body>
+</html>
